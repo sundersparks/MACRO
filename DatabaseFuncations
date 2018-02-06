@@ -1,0 +1,85 @@
+    'Globally Declaration of variables
+    '---------------------------------
+    Public Conn As New ADODB.Connection
+    Public qry As String
+    Public rs As New ADODB.Recordset
+
+Public Function DB_Open(DBFilePath)
+    Dim ret_cd As String
+    '-------------------------------------
+    'Open Connection if closed (State = 0)
+    '-------------------------------------
+    If Conn.State = 0 Then
+       Conn.Open "Provider=Microsoft.ACE.OLEDB.12.0;" & "Data Source = " & DBFilePath & ";"
+        If Err.Number <> 0 Then
+            Debug.Print "Connection Failed"
+            ret_cd = 1
+            Exit Function
+            'MsgBox ("Connection Failed")
+        Else
+            ret_cd = "0"
+        End If
+    Else
+        ret_cd = "0"
+    End If
+    
+    DB_Open = ret_cd
+
+End Function
+
+
+
+Public Function DB_Close()
+   
+    '---------------------
+    'Variables Declaration
+    '---------------------
+    Dim ret_cd
+    'Function_Result is already declared as Global Variable in Module
+    '---------------------------
+    'Close DB Connection if Open
+    '---------------------------
+    If Conn.State = adStateOpen Then
+        Conn.Close
+    End If
+    
+    '-----------------------
+    'Verify DB Connection
+    '-----------------------
+    If Conn.State = adStateClosed Then
+        ret_cd = "0"
+        txtLogMsg = "Connection Found As Closed"
+        'Sheets("SubmitTimeEntry").Range("DBStatus").Value = "Not Connected"
+    Else
+        ret_cd = "1"
+        txtLogMsg = "Connection Is not Closed"
+        'Sheets("SubmitTimeEntry").Range("DBStatus").Value = "Connection Is not Closed"
+    End If
+     
+End Function
+
+Function Return_Table_data1(strSql)
+  rs.Open strSql, Conn, adOpenKeyset, adLockOptimistic
+  
+    Set Return_Table_data1 = rs
+   
+End Function
+
+
+'******************************************** Files conversion **********************************
+Function Files_BackUp()
+   fdate = Replace(Replace(Date, "/", "_") & "_" & Replace(Time, ":", ""), " ", "")
+    strpath = ThisWorkbook.path & "\Backup\Backup_" & fdate
+    Set objFileSys = CreateObject("Scripting.FileSystemObject")
+    objFileSys.createfolder (strpath)
+    objFileSys.createfolder (strpath & "\Converted_FeedFiles\")
+    objFileSys.createfolder (strpath & "\Original_FeedFiles\")
+    objFileSys.createfolder (strpath & "\DQMC\")
+
+    objFileSys.GetFolder(ThisWorkbook.path & "\Original_FeedFiles").Copy (strpath & "\Original_FeedFiles")
+    objFileSys.GetFolder(ThisWorkbook.path & "\Converted_FeedFiles").Copy (strpath & "\Converted_FeedFiles")
+    objFileSys.GetFolder(ThisWorkbook.path & "\DQMC").Copy (strpath & "\DQMC")
+    Set objFileSys = Nothing
+
+End Function
+
