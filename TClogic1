@@ -1,0 +1,413 @@
+
+Function E348_03_1()  ' Primary Physical Address - City - Conformity (HotScan)
+ Rem Delete Old Content
+ Var = ThisWorkbook.Sheets("anomaly list").UsedRange.Rows.Count
+ If Var = 1 Then
+  Var = 2
+ End If
+ valid_temp = 0
+ Application.DisplayAlerts = False
+ Workbooks.Open FileName:=DQMCFilePath, Password:="DQMC_OFAC", ReadOnly:=False, IgnoreReadOnlyRecommended:=True
+ Application.DisplayAlerts = True
+  Set oCn1 = CreateObject("ADODB.Connection")
+   Dim rs1 As New ADODB.Recordset
+ oCn1.Open "Provider=Microsoft.ACE.OLEDB.12.0;" & _
+         "Data Source= " & DQMCFilePath & ";" & _
+         "Extended Properties=Excel 12.0;Jet OLEDB:Database Password=DQMC_OFAC;"
+  
+ ThisWorkbook.Sheets("anomaly list").Range("A2:F" & Var).Delete
+ ThisWorkbook.Sheets("Total_Anomaly Count").Range("B2:B12" & Var).Delete
+' FeedFilePath = "U:\OFAC_Data_Integrity\Original_FeedFiles"
+  
+  Call detail_Report_Header("OFAC_HotScan_Primary Physical Address - City-Conformity_null_or_valid_Charcters")
+  
+  
+ '******************** Creating the Connection for Feed File *******************
+    Dim objStream, strData
+    Set objStream = CreateObject("ADODB.Stream")
+    objStream.Charset = "utf-8"
+    objStream.LineSeparator = 10
+    objStream.Open
+    
+ Dim j: j = 2
+ Dim anomaly_count: anomaly_count = 0
+ Dim tc_id_fail_count: tc_id_fail_count = 1
+     
+ No_Of_Files = ThisWorkbook.Sheets("Feed File name").UsedRange.Rows.Count
+     
+    For i = 1 To No_Of_Files Step 1
+     fName = ThisWorkbook.Sheets("Feed File name").Cells(i, 1).Value
+     temp = 0
+     tc_check = 0
+     fnamesplit = Split(fName, "_")
+     strDataSource = fnamesplit(1)
+     Debug.Print FeedFilePath & "\OFAC_Autoamtion_SIT\" & fName
+'     Set txsInput = objFileSys.OpenTextFile(FeedFilePath & "\" & fName, 1)
+      objStream.LoadFromFile (FeedFilePath & "\" & fName)
+         If strDataSource = "CCX" Or strDataSource = "CIF" Or strDataSource = "PAP" Or strDataSource = "PTT" Or strDataSource = "TD3" Or strDataSource = "TSP" Or strDataSource = "WKD" Then
+         
+            Do While objStream.EOS <> True
+            
+               readlne = objStream.ReadText(-2)
+               city_name = Mid(readlne, 331, 50)
+                Feed_ID = Trim(Mid(readlne, 1, 30))
+                    If Feed_ID = Empty Then
+                      Feed_ID = ""
+                    End If
+                    city_name = Trim(city_name)
+                    city_name = Replace(city_name, "'", "''")
+                    If city_name = Empty Then
+                        city_name = ""
+                        chk = 1
+                        TC_Name = "Primary Physical Address - City_NULL"
+                      Else
+                        chk = chkregexp(Trim(city_name))
+                        TC_Name = "Primary Physical Address - City_Valid Character"
+                    End If
+                    
+              If (chk = 0) Then
+                    ThisWorkbook.Sheets("anomaly list").Cells(j, 1).Value = Feed_ID
+                    ThisWorkbook.Sheets("anomaly list").Cells(j, 2).Value = city_name
+                    ThisWorkbook.Sheets("anomaly list").Cells(j, 3).Value = strDataSource
+                    Select Case strDataSource
+                     Case "CCX"
+                      TC_ID = "TC_0039"
+                     Case "CIF"
+                      TC_ID = "TC_0042"
+                     Case "PAP"
+                      TC_ID = "TC_0045"
+                     Case "PTT"
+                      TC_ID = "TC_0048"
+                     Case "TD3"
+                       TC_ID = "TC_0051"
+                     Case "TSP"
+                      TC_ID = "TC_0054"
+                     Case "WKD"
+                       TC_ID = "TC_0057"
+                    End Select
+                     ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = TC_ID
+            '*********************************************************************************
+                    anomaly_count = anomaly_count + 1
+                    j = j + 1
+                    temp = temp + 1
+                Else ' Valid City Name
+                  
+                  DataSourceName = strDataSource & "_DELTA"
+                  Query = "SELECT * FROM [BR E348-03$A6:BZ] where ID like '" & Feed_ID & "' and City like '" & city_name & "' and SourceSystemCode like '" & DataSourceName & "' "
+                  rs1.Open Query, oCn1, adOpenStatic, adLockOptimistic, adCmdText
+                 Rem Select DQMC_WB
+'                 If rs1.RecordCount > 0 Then
+'                   flag = 1
+'                   If (valid_temp = 0) Then
+'                       Call Summary_Report("E348_03", "OFAC_HotScan_Primary Physical Address - City-Conformity_null_or_valid_Charcters", "Fail", "", 14)
+'                       Call detail_Report_Header("OFAC_HotScan_Primary Physical Address - City-Conformity_null_or_valid_Charcters")
+'                        valid_temp = valid_temp + 1
+'                        Failed_Test_Case = Failed_Test_Case + 1
+'                    End If
+                     If rs1.RecordCount > 0 Then
+                        resltstatus = "Fail"
+                        valid_temp = valid_temp + 1
+                        tc_check = tc_check + 1
+                        tc_id_fail_count = tc_id_fail_count + 1
+                       Else
+                        resltstatus = "Pass"
+                     End If
+        '       ***************************************************************
+'                 If flag = 1 Then
+                
+                  Ver_Col_Name = "City"
+                   Select Case strDataSource
+                      Case "CCX"
+                       If city_name = "" Then
+                        city_name = "Null"
+                         TC_ID = "TC_0037"
+                        Else
+                         TC_ID = "TC_0038"
+                       End If
+                      Case "CIF"
+                        If city_name = "" Then
+                          TC_ID = "TC_0040"
+                          city_name = "Null"
+                         Else
+                          TC_ID = "TC_0041"
+                        End If
+                     Case "PAP"
+                       If city_name = "" Then
+                          TC_ID = "TC_0043"
+                          city_name = "Null"
+                         Else
+                          TC_ID = "TC_0044"
+                        End If
+                      Case "PTT"
+                         If city_name = "" Then
+                          TC_ID = "TC_0046"
+                          city_name = "Null"
+                         Else
+                          TC_ID = "TC_0047"
+                         End If
+                     Case "TD3"
+                          If city_name = "" Then
+                            TC_ID = "TC_0049"
+                            city_name = "Null"
+                           Else
+                            TC_ID = "TC_0050"
+                          End If
+                      Case "TSP"
+                         If city_name = "" Then
+                            TC_ID = "TC_0052"
+                            city_name = "Null"
+                           Else
+                            TC_ID = "TC_0053"
+                          End If
+                      Case "WKD"
+                         If city_name = "" Then
+                            TC_ID = "TC_0055"
+                            city_name = "Null"
+                           Else
+                            TC_ID = "TC_0056"
+                          End If
+                    End Select
+                   Call detail_report(TC_ID, resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & city_name & " for FeedId " & Feed_ID, Ver_Col_Name & " column have the value as " & city_name & " for FeedId " & Feed_ID)
+                   
+'                  End If
+                  If resltstatus = "Fail" Then
+                     ThisWorkbook.Sheets("Passed_Data_List").Cells(tc_id_fail_count, 1).Value = TC_ID
+                     ThisWorkbook.Sheets("Passed_Data_List").Cells(tc_id_fail_count, 2).Value = "Fail"
+                     ThisWorkbook.Sheets("Passed_Data_List").Cells(tc_id_fail_count, 3).Value = strDataSource
+                     ThisWorkbook.Sheets("Passed_Data_List").Cells(tc_id_fail_count, 4).Value = TC_Name
+                  End If
+
+                  rs1.Close
+                
+             End If
+            Loop
+          Call write_anomaly_count(strDataSource, temp)
+       End If
+    Next
+   Set rs1 = Nothing
+   Set oCn1 = Nothing
+   
+   ' *************************City Name should have the valid Characters*************************
+     If (valid_temp = 0) Then
+        Call Summary_Report("E348_03", "OFAC_HotScan_Primary Physical Address - City-Conformity_null_or_valid_Charcters", "Pass", "", 14)
+        Passed_Test_Case = Passed_Test_Case + 1
+      Else
+        Call Summary_Report("E348_03", "OFAC_HotScan_Primary Physical Address - City-Conformity_null_or_valid_Charcters", "Fail", "", 14)
+        Failed_Test_Case = Failed_Test_Case + 1
+     End If
+'   ********************************************************
+   
+   ' *************************City Name should not have invalid Characters*************************
+   chk_Anomaly = no_of_anomaly("E348-03", anomaly_count)
+   
+   If (chk_Anomaly = True) Then
+      Call detail_Report_Header("OFAC_HotScan_Primary Physical Address - City-Conformity_Invalid_Charcters")
+'      Call Summary_Report("E013-03", "TS001_OFAC_HotScan_PartyName_Null_Invalid_Charcters", "Pass")
+      temp = verify_DQMC("ID", "BR E348-03", "City", anomaly_count)
+      If (temp = 0) Then
+       Passed_Test_Case = Passed_Test_Case + 1
+         Call Summary_Report("E348-03", "OFAC_HotScan_Primary Physical Address - City-Conformity_Invalid_Charcters", "Pass", "", 7)
+        Else
+         Failed_Test_Case = Failed_Test_Case + 1
+         Call Summary_Report("E348-03", "OFAC_HotScan_Primary Physical Address - City-Conformity_Invalid_Charcters", "Fail", "", 7)
+       End If
+      detailsReport.Close
+      Set detailsReport = Nothing
+    Else
+      test_case_count = test_case_count + 1
+      Call Summary_Report("E348-03", "OFAC_HotScan_Primary Physical Address - City-Conformity_Invalid_Charcters", "Fail", "No of Anomaly is not equal to the anomalies in DQMC", 7)
+   End If
+   
+'   ****************** Test Case Report ************************
+   testcasename = "Primary Physical Address - City_Invalid Character"
+   testcaselist = "TC_0039,TC_0042,TC_0045,TC_0048,TC_0051,TC_0054,TC_0057"
+   DataSourceName = "CCX,CIF,PAP,PTT,TD3,TSP,WKD"
+   Call test_case_report(testcasename, testcaselist, DataSourceName)
+'   ****************** Invalid**************
+   testcaselist_anmly = "TC_0037,TC_0038,TC_0040,TC_0041,TC_0043,TC_0044,TC_0046,TC_0047,TC_0049,TC_0050,TC_0052,TC_0053,TC_0055,TC_0056"
+   DataSourceName_anmly = "CCX_Null,CCX_Valid,CIF_Null,CIF_Valid,PAP_Null,PAP_Valid,PTT_Null,PTT_Valid,TD3_Null,TD3_Valid,TSP_Null,TSP_Valid,WKD_Null,WKD_Valid"
+   testcasename = "Primary Physical Address - City_"
+   Call test_case_report_wo_anomaly(testcaselist_anmly, DataSourceName_anmly, testcasename)
+End Function
+
+
+
+
+'**************************************************************************************************************************
+
+Function E351_07_1()  ' Primary Physical Address - Country - Conformity (Hotscan)
+ Rem Delete Old Content
+ Var = ThisWorkbook.Sheets("anomaly list").UsedRange.Rows.Count
+ If Var = 1 Then
+  Var = 2
+ End If
+ valid_temp = 0
+ ThisWorkbook.Sheets("anomaly list").Range("A2:F" & Var).Delete
+ ThisWorkbook.Sheets("Total_Anomaly Count").Range("B2:B12" & Var).Delete
+' *****************   DataBase Connection open *****************
+ Call excel_db_open
+ '******************** Creating the Connection for Feed File *******************
+'Dim objStream, strData
+'Set objStream = CreateObject("ADODB.Stream")
+'objStream.Charset = "utf-8"
+'objStream.LineSeparator = 10
+'objStream.Open
+
+Set objStream = create_notepad_connection
+
+ Dim j: j = 2
+ Dim anomaly_count_ccx: anomaly_count_ccx = 0
+     
+ No_Of_Files = ThisWorkbook.Sheets("Feed File name").UsedRange.Rows.Count
+     
+    For i = 1 To No_Of_Files Step 1
+     fName = ThisWorkbook.Sheets("Feed File name").Cells(i, 1).Value
+     temp = 0
+     fnamesplit = Split(fName, "_")
+     strDataSource = fnamesplit(1)
+     Debug.Print FeedFilePath & "\OFAC_Autoamtion_SIT\" & fName
+     objStream.LoadFromFile (FeedFilePath & "\" & fName)
+     
+         If strDataSource = "CCX" Or strDataSource = "CIF" Or strDataSource = "MSB" Or strDataSource = "PAP" Or strDataSource = "PTT" Or strDataSource = "TD2" Or strDataSource = "TD3" Or strDataSource = "TSP" Or strDataSource = "WKD" Then
+            Do While objStream.EOS <> True
+               readlne = objStream.ReadText(-2)
+               strCountry = Mid(readlne, 481, 50)
+               Feed_ID = Trim(Mid(readlne, 1, 30))
+                    If Feed_ID = Empty Then
+                      Feed_ID = ""
+                    End If
+                    strCountry = Trim(strCountry)
+                    If strCountry = Empty Then
+                       strCountry = ""
+                       chk = 1
+                      Else
+                        chk = chkregexp(Trim(strCountry))
+                    End If
+               If (chk = 0) Then
+                    
+                    ThisWorkbook.Sheets("anomaly list").Cells(j, 1).Value = Feed_ID
+                    ThisWorkbook.Sheets("anomaly list").Cells(j, 2).Value = strCountry
+                    ThisWorkbook.Sheets("anomaly list").Cells(j, 3).Value = strDataSource
+                    Select Case strDataSource
+                    'TC_0060,TC_0063,TC_0066,TC_0069,TC_0072,TC_0075,TC_0078,TC_0081,TC_0084
+                    ' CCX,CIF,MSB,PAP,PTT,TD2,TD3,TSP,WKD
+                     Case "CCX"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0060"
+                     Case "CIF"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0063"
+                     Case "MSB"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0066"
+                     Case "PAP"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0069"
+                     Case "PTT"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0072"
+                     Case "TD2"
+                        ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0075"
+                     Case "TD3"
+                        ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0078"
+                     Case "TSP"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0081"
+                     Case "WKD"
+                       ThisWorkbook.Sheets("anomaly list").Cells(j, 4).Value = "TC_0084"
+                    End Select
+                    anomaly_count = anomaly_count + 1
+                    j = j + 1
+                    temp = temp + 1
+                  Else
+                     DataSourceName = strDataSource & "_DELTA"
+                      Query = "SELECT * FROM [BR E351-07$A6:BZ] where ID like '" & Feed_ID & "' and Country like '" & strCountry & "' and SourceSystemCode like '" & DataSourceName & "' "
+                    'Query = "SELECT * FROM [Sheet2$] where ID like 'X' "
+                     rsexcel.Open Query, exlconn, adOpenStatic, adLockOptimistic, adCmdText
+                     Rem Select DQMC_WB
+'                    If rsexcel.RecordCount > 0 Then
+'                      flag = 1
+'                      If (valid_temp = 0) Then
+'                        Call Summary_Report("E351-07", "OFAC_HotScan_Primary Physical Address - Country-Conformity_null_or_valid_Charcters", "Fail", "", 18)
+'                          Call detail_Report_Header("OFAC_HotScan_Primary Physical Address - Country-Conformity_null_or_valid_Charcters")
+'                           valid_temp = valid_temp + 1
+'                           Failed_Test_Case = Failed_Test_Case + 1
+'                       End If
+                   If rs1.RecordCount > 0 Then
+                        resltstatus = "Fail"
+                        valid_temp = valid_temp + 1
+                        tc_check = tc_check + 1
+                        tc_id_fail_count = tc_id_fail_count + 1
+                       Else
+                        resltstatus = "Pass"
+                        expcreslt = " do not "
+                     End If
+
+            '       ***************************************************************
+'                        If flag = 1 Then
+                         Ver_Col_Name = "Country"
+                          Select Case strDataSource
+                           Case "CCX"
+                              If strCountry = "" Then
+                                 strCountry = "Null"
+                                 TC_ID = "TC_0058"
+                                Else
+                                 TC_ID = "TC_0059"
+                              End If
+                             
+                            Case "CIF"
+                               Call detail_report("TS_0021", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                            Case "MSB"
+                               Call detail_report("TS_0022", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                            Case "PAP"
+                               Call detail_report("TS_0023", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                             Case "PTT"
+                               Call detail_report("TS_0024", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                            Case "TD2"
+                               Call detail_report("TS_0025", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                            Case "TD3"
+                               Call detail_report("TS_0026", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                             Case "TSP"
+                               Call detail_report("TS_0027", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                             Case "WKD"
+                              Call detail_report("TS_0028", resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                           End Select
+'                        End If
+'                      End If
+                   Call detail_report(TC_ID, resltstatus, strDataSource, Feed_ID, Ver_Col_Name & " column should not have the value as " & strCountry & " for FeedId " & Feed_ID, Ver_Col_Name & " column" & expcreslt & "have the value as " & strCountry & " for FeedId " & Feed_ID)
+                  rsexcel.Close
+               End If
+            Loop
+          Call write_anomaly_count(strDataSource, temp)
+       End If
+    Next
+    
+'    exlconn.Close
+'
+ ActiveWorkbook.Close
+   Set rsexcel = Nothing
+   Set exlconn = Nothing
+   ' *************************Country Name should have the valid Characters*************************
+     If (valid_temp = 0) Then
+        Call Summary_Report("E351-07", "OFAC_HotScan_Primary Physical Address - Country-Conformity_null_or_valid_Charcters", "Pass", "", 18)
+        Passed_Test_Case = Passed_Test_Case + 1
+     End If
+'   ********************************************************
+   
+   chk_Anomaly = no_of_anomaly("E351-07", anomaly_count)
+  
+   If (chk_Anomaly = True) Then
+      Call detail_Report_Header("OFAC_HotScan_Primary Physical Address - Country-Conformity_Invalid_Charcters")
+      temp = verify_DQMC("ID", "BR E351-07", "Country", anomaly_count)
+      If (temp = 0) Then
+       Passed_Test_Case = Passed_Test_Case + 1
+         Call Summary_Report("E351-07", "OFAC_HotScan_Primary Physical Address - Country-Conformity_Invalid_Charcters", "Pass", "", 9)
+        Else
+         Failed_Test_Case = Failed_Test_Case + 1
+         Call Summary_Report("E351-07", "OFAC_HotScan_Primary Physical Address - Country-Conformity_Invalid_Charcters", "Fail", "", 9)
+       End If
+      detailsReport.Close
+      Set detailsReport = Nothing
+    Else
+      test_case_count = test_case_count + 1
+       Failed_Test_Case = Failed_Test_Case + 1
+      Call Summary_Report("E351-07", "OFAC_HotScan_Primary Physical Address - Country-Conformity_Invalid_Charcters", "Fail", "No of Anomaly is not equal to the anomalies in DQMC", 9)
+      Call detail_Report_Header("OFAC_HotScan_Primary Physical Address - Country-Conformity_Invalid_Charcters")
+       temp = verify_DQMC("ID", "BR E351-07", "Country", anomaly_count)
+   End If
+
+End Function
